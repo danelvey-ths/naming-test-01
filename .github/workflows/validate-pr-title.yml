@@ -23,19 +23,38 @@ jobs:
         id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          # Match: <prefix>-<ticket> where ticket is like EM-743 or 743
-          # The prefix ends at the first ticket-like pattern (letters-digits or just digits)
-          REGEX='^(.+?)[-_]([A-Z]{1,}[-_][0-9]+|[a-z]+[-_][0-9]+|[0-9]+)(.*)$'
           
-          if [[ $BRANCH_NAME =~ $REGEX ]]; then
-            PREFIX="${BASH_REMATCH[1]}"
-            TICKET="${BASH_REMATCH[2]}"
-            DESCRIPTION="${BASH_REMATCH[3]}"
+          # Use perl for robust regex matching (PCRE)
+          # We check two cases:
+          # 1. Branch starts with the ticket ID (e.g. DM-123, encore-983483)
+          # 2. Branch has a prefix before the ticket ID (e.g. web-DM-123)
+          
+          # Ticket patterns:
+          # - Uppercase-Number (EM-743)
+          # - Lowercase-Number (encore-123)
+          # - Number only (743)
+          
+          PARSED=$(echo "$BRANCH_NAME" | perl -ne '
+            $ticket_pat = "([A-Z]{1,}[-_][0-9]+|[a-z]+[-_][0-9]+|[0-9]+)";
+            
+            # Case 1: Starts with ticket
+            if (/^$ticket_pat(.*)$/) {
+              print "PREFIX=\"\"\nTICKET=\"$1\"\nDESCRIPTION=\"$2\"";
+            } 
+            # Case 2: Prefix + Ticket (non-greedy prefix)
+            elsif (/^(.+?)[-_]$ticket_pat(.*)$/) {
+              print "PREFIX=\"$1\"\nTICKET=\"$2\"\nDESCRIPTION=\"$3\"";
+            }
+          ')
+          
+          if [ -n "$PARSED" ]; then
+            eval "$PARSED"
             
             echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
             echo "ticket=$TICKET" >> $GITHUB_OUTPUT
             echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
             echo "Branch name matches expected pattern: $BRANCH_NAME"
+            echo "Parsed - Prefix: '$PREFIX', Ticket: '$TICKET', Description: '$DESCRIPTION'"
             
             # Determine if there's a real description (ignoring separators and whitespace)
             CLEAN_DESC=$(echo "$DESCRIPTION" | sed 's/[-_]//g' | sed 's/^ *//; s/ *$//')
