@@ -22,11 +22,11 @@ jobs:
         id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          REGEX='(.+-| )?([a-zA-Z0-9]+-[0-9]+).*$'
+          REGEX='(.*)(-| )?([a-zA-Z0-9]+-[0-9]+).*$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
             echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "ticket=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "ticket=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
             echo "Branch name matches expected pattern: $BRANCH_NAME"
           else
             echo "Branch name does not match expected <prefix>[-| ]<ticket-id> pattern"
@@ -41,18 +41,28 @@ jobs:
           PREFIX="${{ steps.validate.outputs.prefix }}"
           TICKET="${{ steps.validate.outputs.ticket }}"
           
-          # Remove prefix and ticket from branch name to get the description
-          # Replace hyphens with spaces and convert to title case
-          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | sed 's/[-_]/ /g')
+          # Start with the full branch name and strip the leading prefix + ticket (if present)
+          DESCRIPTION="$BRANCH_NAME"
+          if [ -n "$PREFIX" ]; then
+            DESCRIPTION=$(echo "$DESCRIPTION" | sed -E "s/^${PREFIX}[-_]?//")
+          fi
+          DESCRIPTION=$(echo "$DESCRIPTION" | sed -E "s/^${TICKET}[-_]?//")
+          # Replace remaining separators with spaces and collapse extra spaces
+          DESCRIPTION=$(echo "$DESCRIPTION" | sed 's/[-_]/ /g' | sed 's/  \+/ /g' | sed 's/^ //; s/ $//')
           
-          # Convert prefix to title case (first letter uppercase, rest lowercase)
-          PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
+          # Build the header (with or without prefix)
+          if [ -n "$PREFIX" ]; then
+            PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
+            HEADER="$PREFIX_TITLE $TICKET"
+          else
+            HEADER="$TICKET"
+          fi
           
           # Build the final title
           if [ -z "$DESCRIPTION" ]; then
-            EXPECTED_TITLE="$PREFIX_TITLE $TICKET"
+            EXPECTED_TITLE="$HEADER"
           else
-            EXPECTED_TITLE="$PREFIX_TITLE $TICKET $DESCRIPTION"
+            EXPECTED_TITLE="$HEADER $DESCRIPTION"
           fi
           
           echo "title=$EXPECTED_TITLE" >> $GITHUB_OUTPUT
