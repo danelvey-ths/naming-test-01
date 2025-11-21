@@ -14,18 +14,75 @@ jobs:
           BRANCH_NAME="${{ github.head_ref }}"
           echo "name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Extract PR title
-        id: pr
-        run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          echo "title=$PR_TITLE" >> $GITHUB_OUTPUT
-
-      - name: Validate PR title matches branch name
+      - name: Validate branch name format
+        id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          PR_TITLE="${{ steps.pr.outputs.title }}"
+          REGEX='(.+)(-| )([a-zA-Z0-9]+-[0-9]+).*$'
           
-          if [ "$BRANCH_NAME" != "$PR_TITLE" ]; then
+          if [[ $BRANCH_NAME =~ $REGEX ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "separator=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "ticket=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
+            echo "✅ Branch name matches regex: $BRANCH_NAME"
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "❌ Branch name does not match regex"
+            echo "Branch name: $BRANCH_NAME"
+            echo "Expected format: <prefix>[-| ]<ticket-id>"
+            exit 1
+          fi
+
+      - name: Generate expected PR title
+        id: expected
+        run: |
+          BRANCH_NAME="${{ steps.branch.outputs.name }}"
+          PREFIX="${{ steps.validate.outputs.prefix }}"
+          TICKET="${{ steps.validate.outputs.ticket }}"
+          
+          # Remove prefix and ticket from branch name to get the description
+          # Replace hyphens with spaces and convert to title case
+          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | tr '[-_]' ' ')
+          
+          # Convert prefix to title case (first letter uppercase, rest lowercase)
+          PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
+          
+          # Build the final title
+          if [ -z "$DESCRIPTION" ]; then
+            EXPECTED_TITLE="$PREFIX_TITLE $TICKET"
+          else
+            EXPECTED_TITLE="$PREFIX_TITLE $TICKET $DESCRIPTION"
+          fi
+          
+          echo "title=$EXPECTED_TITLE" >> $GITHUB_OUTPUT
+          echo "Expected PR title: $EXPECTED_TITLE"
+
+      - name: Update PR title if needed
+        if: github.event.pull_request.title != steps.expected.outputs.title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const newTitle = '${{ steps.expected.outputs.title }}';
+            const currentTitle = '${{ github.event.pull_request.title }}';
+            
+            console.log(`Updating PR title from "${currentTitle}" to "${newTitle}"`);
+            
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              title: newTitle
+            });
+            
+            console.log('✅ PR title updated successfully');
+
+      - name: Summary
+        run: |
+          echo "Branch: ${{ steps.branch.outputs.name }}"
+          echo "Ticket ID: ${{ steps.validate.outputs.ticket }}"
+          echo "PR Title: ${{ steps.expected.outputs.title }}"
+          echo "✅ Validation complete"
             echo "❌ PR title does not match branch name"
             echo "Branch name: $BRANCH_NAME"
             echo "PR title: $PR_TITLE"
