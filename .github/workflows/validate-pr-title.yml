@@ -1,0 +1,35 @@
+name: Validate PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  validate-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract branch name
+        id: branch
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Extract PR title
+        id: pr
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+      - name: Validate PR title matches branch name
+        run: |
+          BRANCH_NAME="${{ steps.branch.outputs.name }}"
+          PR_TITLE="${{ steps.pr.outputs.title }}"
+          
+          if [ "$BRANCH_NAME" != "$PR_TITLE" ]; then
+            echo "❌ PR title does not match branch name"
+            echo "Branch name: $BRANCH_NAME"
+            echo "PR title: $PR_TITLE"
+            exit 1
+          else
+            echo "✅ PR title matches branch name: $BRANCH_NAME"
+          fi
