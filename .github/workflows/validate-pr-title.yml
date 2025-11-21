@@ -22,7 +22,7 @@ jobs:
         id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          REGEX='(.+)(-| )([a-zA-Z0-9]+-[0-9]+).*$'
+          REGEX='(.+)?(-| )?([a-zA-Z0-9]+-[0-9]+).*$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
             echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
