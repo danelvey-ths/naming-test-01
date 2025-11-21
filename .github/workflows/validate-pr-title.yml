@@ -7,6 +7,7 @@ on:
 permissions:
   pull-requests: write
   contents: read
+  issues: write
 
 jobs:
   validate-pr-title:
@@ -35,15 +36,32 @@ jobs:
             echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
             echo "Branch name matches expected pattern: $BRANCH_NAME"
             
-            # Warn if no description (only separators or empty after ticket)
-            if [ -z "$(echo "$DESCRIPTION" | sed 's/[-_]//g')" ]; then
+            # Determine if there's a real description (ignoring separators and whitespace)
+            CLEAN_DESC=$(echo "$DESCRIPTION" | sed 's/[-_]//g' | sed 's/^ *//; s/ *$//')
+            if [ -z "$CLEAN_DESC" ]; then
+              echo "has_description=false" >> $GITHUB_OUTPUT
               echo "::warning title=Missing description::There's no description in your branch, this makes it harder to understand at a glance what the work is"
+            else
+              echo "has_description=true" >> $GITHUB_OUTPUT
             fi
           else
             echo "Branch name does not match expected <anything>-<ticket-id> pattern"
             echo "Branch name: $BRANCH_NAME"
             exit 1
           fi
+      
+      - name: Comment if missing description
+        if: steps.validate.outputs.has_description == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = "Heads up: There's no description in your branch name after the ticket ID. Adding a short description helps reviewers understand the change at a glance.";
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
 
       - name: Generate expected PR title
         id: expected
