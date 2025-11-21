@@ -47,7 +47,7 @@ jobs:
           
           # Remove prefix and ticket from branch name to get the description
           # Replace hyphens with spaces and convert to title case
-          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | tr '[-_]' ' ')
+          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | sed 's/[-_]/ /g')
           
           # Convert prefix to title case (first letter uppercase, rest lowercase)
           PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
