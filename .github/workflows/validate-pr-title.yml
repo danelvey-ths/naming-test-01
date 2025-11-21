@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, edited, synchronize]
 
+permissions:
+  pull-requests: write
+  contents: read
+
 jobs:
   validate-pr-title:
     runs-on: ubuntu-latest
@@ -14,6 +18,13 @@ jobs:
           BRANCH_NAME="${{ github.head_ref }}"
           echo "name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
+      - name: Warn if branch lacks ticket pattern
+        run: |
+          BRANCH_NAME="${{ steps.branch.outputs.name }}"
+          if ! echo "$BRANCH_NAME" | grep -qiE '[A-Za-z]+-[0-9]+'; then
+            echo "::warning title=Missing ticket ID::Branch name '$BRANCH_NAME' does not contain a ticket-like pattern (e.g., EM-123, DM-849, core-111)."
+          fi
+
       - name: Validate branch name format
         id: validate
         run: |
@@ -21,16 +32,12 @@ jobs:
           REGEX='(.+)(-| )([a-zA-Z0-9]+-[0-9]+).*$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
-            echo "valid=true" >> $GITHUB_OUTPUT
             echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "separator=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
             echo "ticket=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
-            echo "✅ Branch name matches regex: $BRANCH_NAME"
+            echo "Branch name matches expected pattern: $BRANCH_NAME"
           else
-            echo "valid=false" >> $GITHUB_OUTPUT
-            echo "❌ Branch name does not match regex"
+            echo "Branch name does not match expected <prefix>[-| ]<ticket-id> pattern"
             echo "Branch name: $BRANCH_NAME"
-            echo "Expected format: <prefix>[-| ]<ticket-id>"
             exit 1
           fi
 
@@ -43,7 +50,7 @@ jobs:
           
           # Remove prefix and ticket from branch name to get the description
           # Replace hyphens with spaces and convert to title case
-          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | tr '[-_]' ' ')
+          DESCRIPTION=$(echo "$BRANCH_NAME" | sed "s/^${PREFIX}[-_]${TICKET}[-_]//" | sed 's/[-_]/ /g')
           
           # Convert prefix to title case (first letter uppercase, rest lowercase)
           PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
@@ -76,17 +83,3 @@ jobs:
             });
             
             console.log('✅ PR title updated successfully');
-
-      - name: Summary
-        run: |
-          echo "Branch: ${{ steps.branch.outputs.name }}"
-          echo "Ticket ID: ${{ steps.validate.outputs.ticket }}"
-          echo "PR Title: ${{ steps.expected.outputs.title }}"
-          echo "✅ Validation complete"
-            echo "❌ PR title does not match branch name"
-            echo "Branch name: $BRANCH_NAME"
-            echo "PR title: $PR_TITLE"
-            exit 1
-          else
-            echo "✅ PR title matches branch name: $BRANCH_NAME"
-          fi
