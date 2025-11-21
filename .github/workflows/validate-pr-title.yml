@@ -22,11 +22,11 @@ jobs:
         id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          REGEX='(.+)?(-| )?([a-zA-Z0-9]+-[0-9]+).*$'
+          REGEX='(.+-| )?([a-zA-Z0-9]+-[0-9]+).*$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
             echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "ticket=${BASH_REMATCH[3]}" >> $GITHUB_OUTPUT
+            echo "ticket=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
             echo "Branch name matches expected pattern: $BRANCH_NAME"
           else
             echo "Branch name does not match expected <prefix>[-| ]<ticket-id> pattern"
