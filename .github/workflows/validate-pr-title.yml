@@ -24,8 +24,8 @@ jobs:
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
           # Match: <prefix>-<ticket> where ticket is like EM-743 or 743
-          # Use greedy match to capture up to the last hyphen before a valid ticket pattern
-          REGEX='^(.+)[-_]([a-zA-Z]+-[0-9]+|[0-9]+)(.*)$'
+          # The prefix ends at the first ticket-like pattern (letters-digits or just digits)
+          REGEX='^(.+?)[-_]([A-Z]{1,}[-_][0-9]+|[a-z]+[-_][0-9]+|[0-9]+)(.*)$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
             PREFIX="${BASH_REMATCH[1]}"
