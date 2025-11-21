@@ -80,17 +80,3 @@ jobs:
             });
             
             console.log('✅ PR title updated successfully');
-
-      - name: Summary
-        run: |
-          echo "Branch: ${{ steps.branch.outputs.name }}"
-          echo "Ticket ID: ${{ steps.validate.outputs.ticket }}"
-          echo "PR Title: ${{ steps.expected.outputs.title }}"
-          echo "✅ Validation complete"
-            echo "❌ PR title does not match branch name"
-            echo "Branch name: $BRANCH_NAME"
-            echo "PR title: $PR_TITLE"
-            exit 1
-          else
-            echo "✅ PR title matches branch name: $BRANCH_NAME"
-          fi
