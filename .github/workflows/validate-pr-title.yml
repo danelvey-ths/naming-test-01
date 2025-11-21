@@ -18,13 +18,6 @@ jobs:
           BRANCH_NAME="${{ github.head_ref }}"
           echo "name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      - name: Warn if branch lacks ticket pattern
-        run: |
-          BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          if ! echo "$BRANCH_NAME" | grep -qiE '[A-Za-z]+-[0-9]+'; then
-            echo "::warning title=Missing ticket ID::Branch name '$BRANCH_NAME' does not contain a ticket-like pattern (e.g., EM-123, DM-849, core-111)."
-          fi
-
       - name: Validate branch name format
         id: validate
         run: |
