@@ -22,14 +22,25 @@ jobs:
         id: validate
         run: |
           BRANCH_NAME="${{ steps.branch.outputs.name }}"
-          REGEX='^([a-z]+)[-_]([a-zA-Z0-9]+-[0-9]+)'
+          # Match: <anything>-<letters-and-or-numbers>
+          REGEX='^(.+?)[-_]([a-zA-Z]*[0-9]+)(.*)$'
           
           if [[ $BRANCH_NAME =~ $REGEX ]]; then
-            echo "prefix=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "ticket=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            PREFIX="${BASH_REMATCH[1]}"
+            TICKET="${BASH_REMATCH[2]}"
+            DESCRIPTION="${BASH_REMATCH[3]}"
+            
+            echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
+            echo "ticket=$TICKET" >> $GITHUB_OUTPUT
+            echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
             echo "Branch name matches expected pattern: $BRANCH_NAME"
+            
+            # Warn if no description (only separators or empty after ticket)
+            if [ -z "$(echo "$DESCRIPTION" | sed 's/[-_]//g')" ]; then
+              echo "::warning title=Missing description::There's no description in your branch, this makes it harder to understand at a glance what the work is"
+            fi
           else
-            echo "Branch name does not match expected <prefix>[-| ]<ticket-id> pattern"
+            echo "Branch name does not match expected <anything>-<ticket-id> pattern"
             echo "Branch name: $BRANCH_NAME"
             exit 1
           fi
@@ -37,23 +48,17 @@ jobs:
       - name: Generate expected PR title
         id: expected
         run: |
-          BRANCH_NAME="${{ steps.branch.outputs.name }}"
           PREFIX="${{ steps.validate.outputs.prefix }}"
           TICKET="${{ steps.validate.outputs.ticket }}"
+          DESCRIPTION="${{ steps.validate.outputs.description }}"
           
-          # Start with the full branch name and strip the leading prefix + ticket (if present)
-          DESCRIPTION="$BRANCH_NAME"
-          if [ -n "$PREFIX" ]; then
-            DESCRIPTION=$(echo "$DESCRIPTION" | sed -E "s/^${PREFIX}[-_]?//")
-          fi
-          DESCRIPTION=$(echo "$DESCRIPTION" | sed -E "s/^${TICKET}[-_]?//")
           # Replace remaining separators with spaces and collapse extra spaces
           DESCRIPTION=$(echo "$DESCRIPTION" | sed 's/[-_]/ /g' | sed 's/  \+/ /g' | sed 's/^ //; s/ $//')
           
           # Build the header (with or without prefix)
           if [ -n "$PREFIX" ]; then
             PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
-            HEADER="$PREFIX_TITLE $TICKET"
+            HEADER="$PREFIX_TITLE-$TICKET"
           else
             HEADER="$TICKET"
           fi
