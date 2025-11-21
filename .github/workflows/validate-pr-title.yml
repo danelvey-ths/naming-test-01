@@ -76,7 +76,7 @@ jobs:
           # Build the header (with or without prefix)
           if [ -n "$PREFIX" ]; then
             PREFIX_TITLE=$(echo "${PREFIX:0:1}" | tr '[:lower:]' '[:upper:]')${PREFIX:1}
-            HEADER="$PREFIX_TITLE-$TICKET"
+            HEADER="$PREFIX_TITLE $TICKET"
           else
             HEADER="$TICKET"
           fi
